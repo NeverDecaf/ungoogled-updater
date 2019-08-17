@@ -61,6 +61,13 @@ class ChromiumUpdater(object):
                 pass
             except psutil.AccessDenied:
                 pass
+            
+    def run_on_windows_startup(self, enable = True):
+        startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
+        winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
+        key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
+        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, '"{}"'.format(__file__))
+        winreg.CloseKey(key)
 
     def update(self):
         new_version = self._get_latest_release()
@@ -80,8 +87,10 @@ class ChromiumUpdater(object):
         r.raise_for_status()
         with open(tmpzip,'wb') as fp:
             fp.write(r.content)
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         try:
-            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH)])
+            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH)], startupinfo=si)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
         
@@ -107,3 +116,4 @@ class ChromiumUpdater(object):
 if __name__ == '__main__':
     c = ChromiumUpdater()
     c.update()
+##    c.run_on_windows_startup()
