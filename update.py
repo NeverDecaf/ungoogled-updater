@@ -31,7 +31,6 @@ class ChromiumUpdater(object):
         if not sevenzip_path.is_file():
             raise Exception('7z.exe not found at path from registry: {}'.format(sevenzip_path))
         self.SEVENZIP = sevenzip_path
-        self._check_running()
         
     def _get_latest_release(self):
         r = requests.get('https://api.github.com/repos/{}/{}/releases'.format(self.OWNER, self.REPO))
@@ -66,10 +65,11 @@ class ChromiumUpdater(object):
         startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
         winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
-        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, '"{}"'.format(__file__))
+        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, 'pyw "{}"'.format(__file__))
         winreg.CloseKey(key)
 
     def update(self):
+        self._check_running()
         new_version = self._get_latest_release()
         version = [name for name in os.listdir(CHROMIUM_PATH) if name.lower().endswith('manifest')]
         if len(version):
