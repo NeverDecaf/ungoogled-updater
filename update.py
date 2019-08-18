@@ -61,11 +61,11 @@ class ChromiumUpdater(object):
             except psutil.AccessDenied:
                 pass
             
-    def run_on_windows_startup(self, enable = True):
+    def run_on_windows_startup(self, enable = True, path = __file__ ):
         startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
         winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
-        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, 'pyw "{}"'.format(__file__))
+        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, 'pyw "{}"'.format(path))
         winreg.CloseKey(key)
 
     def update(self):
@@ -78,6 +78,8 @@ class ChromiumUpdater(object):
             version = '0'
         if version != new_version:
             print('New version found, updating...')
+        else:
+            return
         tmpzip = Path(CHROMIUM_PATH,'zipped_tmp.7z')
         try:
             os.remove(tmpzip)
@@ -93,7 +95,7 @@ class ChromiumUpdater(object):
             output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH)], startupinfo=si)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
-        
+
         # delete all files in directory:
         for path in os.listdir(CHROMIUM_PATH):
             if os.path.isdir(Path(CHROMIUM_PATH,path)):
@@ -101,7 +103,7 @@ class ChromiumUpdater(object):
                     shutil.rmtree(Path(CHROMIUM_PATH,path))
                 else:
                     googledir = Path(CHROMIUM_PATH,path)
-            elif path != os.path.basename(tmpzip):
+            elif path not in (os.path.basename(tmpzip),os.path.basename(__file__)):
                 os.remove(Path(CHROMIUM_PATH,path))
 
         # copy contents of folder.
@@ -114,6 +116,14 @@ class ChromiumUpdater(object):
         shutil.rmtree(googledir)
             
 if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Update Ungoogled Chromium.')
+    parser.add_argument('--install', action='store_true',
+                        help='Automatically update on windows login.')
+
+    args = parser.parse_args()
     c = ChromiumUpdater()
     c.update()
-##    c.run_on_windows_startup()
+    if args.install:
+        shutil.copyfile(os.path.abspath(__file__),Path(CHROMIUM_PATH,os.path.basename(__file__)))
+        c.run_on_windows_startup(path = Path(CHROMIUM_PATH,os.path.basename(__file__)))
