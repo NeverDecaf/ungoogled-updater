@@ -36,21 +36,22 @@ class ChromiumUpdater(object):
         r = requests.get('https://api.github.com/repos/{}/{}/releases'.format(self.OWNER, self.REPO))
         r.raise_for_status()
         js = r.json()
-        latest = sorted(js,key=lambda x: x['id'])[-1]
-
-        r = requests.get('https://api.github.com/repos/{}/{}/releases/{}'.format(self.OWNER, self.REPO, latest['id']))
-        r.raise_for_status()
-        js = r.json()
-        version = VERSION_FROM_TAG.findall(js['tag_name'])
-        if not len(version):
-            raise Exception('Latest release version number could not be parsed.')
-        version = version[0]
-        ungoogled = [release for release in js['assets'] if 'ungoogled' in release['name'].lower() and 'windows' in release['name'].lower()]
-        if not len(ungoogled):
-            raise Exception('No ungoogled version found in latest release.')
-        self.DOWNLOAD_URL = ungoogled[0]['browser_download_url']
-        return version
-
+        ids = sorted([e['id'] for e in js], reverse = True)
+        for id in ids:
+            r = requests.get('https://api.github.com/repos/{}/{}/releases/{}'.format(self.OWNER, self.REPO, id))
+            r.raise_for_status()
+            js = r.json()
+            version = VERSION_FROM_TAG.findall(js['tag_name'])
+            if not len(version):
+                raise Exception('Release version number could not be parsed.')
+            version = version[0]
+            ungoogled = [release for release in js['assets'] if 'ungoogled' in release['name'].lower() and 'windows' in release['name'].lower()]
+            if not len(ungoogled):
+                continue
+            self.DOWNLOAD_URL = ungoogled[0]['browser_download_url']
+            return version
+        else:
+            raise Exception('No ungoogled versions found in releases.')
     def _check_running(self):
         for proc in psutil.process_iter():
             try:
@@ -92,7 +93,7 @@ class ChromiumUpdater(object):
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         try:
-            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH)], startupinfo=si)
+            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH),'-y'], startupinfo=si)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
 
