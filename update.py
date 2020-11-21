@@ -36,22 +36,18 @@ class ChromiumUpdater(object):
         r = requests.get('https://api.github.com/repos/{}/{}/releases'.format(self.OWNER, self.REPO))
         r.raise_for_status()
         js = r.json()
-        ids = sorted([e['id'] for e in js], reverse = True)
-        for id in ids:
-            r = requests.get('https://api.github.com/repos/{}/{}/releases/{}'.format(self.OWNER, self.REPO, id))
-            r.raise_for_status()
-            js = r.json()
-            version = VERSION_FROM_TAG.findall(js['tag_name'])
+        for release in sorted(js, key=lambda a:a['id'], reverse = True):
+            version = VERSION_FROM_TAG.findall(release['tag_name'])
             if not len(version):
                 raise Exception('Release version number could not be parsed.')
             version = version[0]
-            ungoogled = [release for release in js['assets'] if 'ungoogled' in release['name'].lower() and 'windows' in release['name'].lower()]
-            if not len(ungoogled):
+            if 'ungoogled' not in release['name'].lower():
                 continue
-            self.DOWNLOAD_URL = ungoogled[0]['browser_download_url']
+            self.DOWNLOAD_URL = release['assets'][0]['browser_download_url']
             return version
         else:
             raise Exception('No ungoogled versions found in releases.')
+            
     def _check_running(self):
         for proc in psutil.process_iter():
             try:
