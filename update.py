@@ -13,12 +13,12 @@ from distutils.dir_util import copy_tree
 CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium')
 VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
 import psutil
-class ChromiumUpdater(object):
+class ChromiumUpdater:
     OWNER = 'macchrome'
     REPO = 'winchrome'
     def __init__(self):
         try:
-            os.mkdir(CHROMIUM_PATH)
+            CHROMIUM_PATH.mkdir()
         except FileExistsError:
             pass
         sub_key_7zfm = 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\7zFM.exe'
@@ -36,7 +36,7 @@ class ChromiumUpdater(object):
         r = requests.get('https://api.github.com/repos/{}/{}/releases'.format(self.OWNER, self.REPO))
         r.raise_for_status()
         js = r.json()
-        for release in sorted(js, key=lambda a:a['id'], reverse = True):
+        for release in sorted(js, key=lambda a:a['id'], reverse=True):
             version = VERSION_FROM_TAG.findall(release['tag_name'])
             if not len(version):
                 raise Exception('Release version number could not be parsed.')
@@ -68,7 +68,7 @@ class ChromiumUpdater(object):
     def update(self):
         self._check_running()
         new_version = self._get_latest_release()
-        version = [name for name in os.listdir(CHROMIUM_PATH) if name.lower().endswith('manifest')]
+        version = [name for name in CHROMIUM_PATH.iterdir() if name.lower().endswith('manifest')]
         if len(version):
             version = os.path.splitext(version[0])[0]
         else:
@@ -79,35 +79,35 @@ class ChromiumUpdater(object):
             return
         tmpzip = Path(CHROMIUM_PATH,'zipped_tmp.7z')
         try:
-            os.remove(tmpzip)
+            tmpzip.unlink()
         except FileNotFoundError:
             pass
         r = requests.get(self.DOWNLOAD_URL)
         r.raise_for_status()
-        with open(tmpzip,'wb') as fp:
-            fp.write(r.content)
+        tmpzip.write_bytes(r.content)
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         try:
-            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), '-o{}'.format(CHROMIUM_PATH),'-y'], startupinfo=si)
+            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), f'-o{CHROMIUM_PATH}','-y'], startupinfo=si)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
 
         # delete all files in directory:
-        for path in os.listdir(CHROMIUM_PATH):
-            if os.path.isdir(Path(CHROMIUM_PATH,path)):
+        for path in CHROMIUM_PATH.iterdir():
+            tmp_path = Path(CHROMIUM_PATH,path)
+            if tmp_path.is_dir():
                 if not path.startswith('ungoogled'):
-                    shutil.rmtree(Path(CHROMIUM_PATH,path))
+                    shutil.rmtree(tmp_path)
                 else:
-                    googledir = Path(CHROMIUM_PATH,path)
-            elif path not in (os.path.basename(tmpzip),os.path.basename(__file__)):
-                os.remove(Path(CHROMIUM_PATH,path))
+                    googledir = tmp_path
+            elif path not in (tmpzip.name,os.path.basename(__file__)):
+                tmp_path.unlink()
 
         # copy contents of folder.
         copy_tree(googledir, str(CHROMIUM_PATH))
         #cleanup
         try:
-            os.remove(tmpzip)
+            tmpzip.unlink()
         except FileNotFoundError:
             pass
         shutil.rmtree(googledir)
@@ -123,4 +123,4 @@ if __name__ == '__main__':
     c.update()
     if args.install:
         shutil.copyfile(os.path.abspath(__file__),Path(CHROMIUM_PATH,os.path.basename(__file__)))
-        c.run_on_windows_startup(path = Path(CHROMIUM_PATH,os.path.basename(__file__)))
+        c.run_on_windows_startup(path=Path(CHROMIUM_PATH,os.path.basename(__file__)))
