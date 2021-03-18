@@ -31,7 +31,8 @@ class ChromiumUpdater:
         self.SEVENZIP = Path(sevenzipfm_dir, '7z.exe')
         if not self.SEVENZIP.is_file():
             raise Exception(f'7z.exe not found at path from registry: {self.SEVENZIP}')
-        
+        self.sinfo = subprocess.STARTUPINFO()
+        self.sinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     def _get_latest_release(self):
         r = requests.get(f'https://api.github.com/repos/{self.OWNER}/{self.REPO}/releases')
         r.raise_for_status()
@@ -65,7 +66,18 @@ class ChromiumUpdater:
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
         winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, f'pyw "{path}"')
         winreg.CloseKey(key)
-
+        
+    def verify_archive(self, zippath, expected_version):
+        ''' returns name of chrome archive or None if not found.'''
+        bytes = subprocess.check_output([str(self.SEVENZIP), 'l', str(zippath)], startupinfo=self.sinfo)
+        paths = [split[-1] for split in [line.split() for line in bytes.decode('utf-8').splitlines()] if len(split) in (5,6)]
+        for filepath in paths:
+            if filepath.endswith('.manifest'):
+                fp = Path(filepath)
+                if fp.parent.name and fp.stem == expected_version:
+                    return fp.parent
+        return None
+        
     def update(self):
         self._check_running()
         new_version = self._get_latest_release()
@@ -84,17 +96,15 @@ class ChromiumUpdater:
         r = requests.get(self.DOWNLOAD_URL)
         r.raise_for_status()
         tmpzip.write_bytes(r.content)
-        si = subprocess.STARTUPINFO()
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        dirs_before = set([f for f in CHROMIUM_PATH.iterdir() if f.is_dir()])
+        
+        archive_contents = self.verify_archive(tmpzip, new_version)
+        if not archive_contents:
+            raise Exception('Unexpected contents of Chromium archive.')
+        googledir = Path(CHROMIUM_PATH, archive_contents)
         try:
-            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), f'-o{CHROMIUM_PATH}','-y'], startupinfo=si)
+            output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), f'-o{CHROMIUM_PATH}','-y'], startupinfo=self.sinfo)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
-        dirs_after = set([f for f in CHROMIUM_PATH.iterdir() if f.is_dir()])
-        if len(dirs_after-dirs_before) != 1:
-            raise Exception('Unexpected contents of Chromium archive.')
-        googledir = (dirs_after-dirs_before).pop()
         
         # delete all files in directory:
         for path in CHROMIUM_PATH.iterdir():
