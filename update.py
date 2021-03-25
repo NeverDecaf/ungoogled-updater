@@ -10,9 +10,11 @@ import subprocess
 import shutil
 from distutils.dir_util import copy_tree
 import psutil
+import platform
 
 CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium')
 VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
+IS_64_BIT = platform.machine().endswith('64')
 
 class ChromiumUpdater:
     OWNER = 'macchrome'
@@ -33,24 +35,19 @@ class ChromiumUpdater:
             raise Exception(f'7z.exe not found at path from registry: {self.SEVENZIP}')
         self.sinfo = subprocess.STARTUPINFO()
         self.sinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        
     def _get_latest_release(self):
         r = requests.get(f'https://api.github.com/repos/{self.OWNER}/{self.REPO}/releases')
         r.raise_for_status()
-        js = r.json()
-        for release in sorted(js, key=lambda a:a['id'], reverse=True):
-            version = VERSION_FROM_TAG.findall(release['tag_name'])
-            if not len(version):
+        for release in sorted([r for r in r.json() if 'ungoogled' in r['name'].lower()], key=lambda a:a['id'], reverse=True):
+            version = VERSION_FROM_TAG.search(release['tag_name'])
+            if not version:
                 raise Exception('Release version number could not be parsed.')
-            version = version[0]
-            if 'ungoogled' not in release['name'].lower():
+            valid_assets = [a for a in release['assets'] if a['name'].lower().endswith(f"{'win64' if IS_64_BIT else 'win32'}.7z")]
+            if not valid_assets:
                 continue
-            asset_number = 0
-            if "7z" in release['assets'][asset_number]['browser_download_url']: # macchrome now includes mini_installer.exe in their releases
-                continue
-            else:
-                asset_number += 1
-            self.DOWNLOAD_URL = release['assets'][0]['browser_download_url']
-            return version
+            self.DOWNLOAD_URL = valid_assets[0]['browser_download_url']
+            return version.group(1)
         else:
             raise Exception('No ungoogled versions found in releases.')
             
