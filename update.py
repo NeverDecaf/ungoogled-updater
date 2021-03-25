@@ -48,7 +48,7 @@ class ChromiumUpdater:
             if "7z" in release['assets'][asset_number]['browser_download_url']: # macchrome now includes mini_installer.exe in their releases
                 continue
             else:
-                asset_number = asset_number+1
+                asset_number += 1
             self.DOWNLOAD_URL = release['assets'][0]['browser_download_url']
             return version
         else:
