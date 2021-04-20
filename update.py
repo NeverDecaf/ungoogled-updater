@@ -11,6 +11,7 @@ import shutil
 from distutils.dir_util import copy_tree
 import psutil
 import platform
+import sys
 
 CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium')
 VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
@@ -62,12 +63,22 @@ class ChromiumUpdater:
             except psutil.AccessDenied:
                 pass
             
-    def run_on_windows_startup(self, enable = True, path = __file__ ):
+    def run_on_schedule_and_startup(self, enable = True, path = __file__ ):
         startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
         winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
-        winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, f'pyw "{path}"')
+        if enable:
+            winreg.SetValueEx(key, 'Ungoogled Chromium Updater', 0, winreg.REG_SZ, f'"{sys.executable.replace("python.exe","pythonw.exe")}" "{path}"')
+        else:
+            try:
+                winreg.DeleteValue(key, 'Ungoogled Chromium Updater')
+            except FileNotFoundError:
+                pass
         winreg.CloseKey(key)
+        if enable:
+            os.system(fr'''SchTasks /Create /SC DAILY /RL HIGHEST /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{Path(__file__).absolute()}'" /ST 00:00 /F''')
+        else:
+            os.system(fr'''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
         
     def verify_archive(self, zippath, expected_version):
         ''' returns name of chrome archive or None if not found.'''
@@ -129,12 +140,15 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Update Ungoogled Chromium.')
     parser.add_argument('--install', action='store_true',
-                        help='Automatically update on windows login.')
+                        help='Automatically update on Windows login and daily at 00:00.')
+    parser.add_argument('--uninstall', action='store_true',
+                        help='Do not run automatically.')
 
     args = parser.parse_args()
     c = ChromiumUpdater()
-    c.update()
-    if args.install:
-        shutil.copyfile(os.path.abspath(__file__),Path(CHROMIUM_PATH,os.path.basename(__file__)))
-        c.run_on_windows_startup(path=Path(CHROMIUM_PATH,os.path.basename(__file__)))
-        print('Install successful, will run automatically on Windows startup.')
+    try:
+        c.update()
+    finally:
+        if args.install or args.uninstall:
+            shutil.copyfile(Path(__file__).absolute(),Path(CHROMIUM_PATH,os.path.basename(__file__)))
+            c.run_on_schedule_and_startup(enable = args.install, path=Path(CHROMIUM_PATH,os.path.basename(__file__)))
