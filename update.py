@@ -76,7 +76,7 @@ class ChromiumUpdater:
                 pass
         winreg.CloseKey(key)
         if enable:
-            os.system(fr'''SchTasks /Create /SC DAILY /RL HIGHEST /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{Path(__file__).absolute()}'" /ST 00:00 /F''')
+            os.system(fr'''SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{Path(__file__).absolute()}'" /ST 00:00 /F''')
         else:
             os.system(fr'''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
         
