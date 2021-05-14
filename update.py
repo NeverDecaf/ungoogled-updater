@@ -63,7 +63,7 @@ class ChromiumUpdater:
             except psutil.AccessDenied:
                 pass
             
-    def run_on_schedule_and_startup(self, enable = True, path = __file__ ):
+    def run_on_schedule_and_startup(self, enable = True, path = Path(__file__) ):
         startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
         winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
@@ -76,7 +76,7 @@ class ChromiumUpdater:
                 pass
         winreg.CloseKey(key)
         if enable:
-            os.system(fr'''SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{Path(__file__).absolute()}'" /ST 00:00 /F''')
+            os.system(fr'''SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{path.absolute()}'" /ST 00:00 /F''')
         else:
             os.system(fr'''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
         
