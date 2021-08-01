@@ -83,12 +83,11 @@ class ChromiumUpdater:
     def verify_archive(self, zippath, expected_version):
         ''' returns name of chrome archive or None if not found.'''
         bytes = subprocess.check_output([str(self.SEVENZIP), 'l', str(zippath)], startupinfo=self.sinfo)
-        paths = [split[-1] for split in [line.split() for line in bytes.decode('utf-8').splitlines()] if len(split) in (5,6)]
+        paths = [split[-1] for split in [line.split() for line in bytes.decode('utf-8').splitlines()] if len(split) and split[-1].endswith('.manifest')]
         for filepath in paths:
-            if filepath.endswith('.manifest'):
-                fp = Path(filepath)
-                if fp.parent.name and fp.stem == expected_version:
-                    return fp.parent
+            fp = Path(filepath)
+            if fp.parent.name and fp.stem == expected_version:
+                return fp.parent
         return None
         
     def update(self):
