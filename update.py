@@ -12,6 +12,7 @@ from distutils.dir_util import copy_tree
 import psutil
 import platform
 import sys
+from datetime import datetime
 
 CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium')
 VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
@@ -36,7 +37,6 @@ class ChromiumUpdater:
             raise Exception(f'7z.exe not found at path from registry: {self.SEVENZIP}')
         self.sinfo = subprocess.STARTUPINFO()
         self.sinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        
     def _get_latest_release(self):
         r = requests.get(f'https://api.github.com/repos/{self.OWNER}/{self.REPO}/releases')
         r.raise_for_status()
@@ -44,14 +44,26 @@ class ChromiumUpdater:
             version = VERSION_FROM_TAG.search(release['tag_name'])
             if not version:
                 raise Exception('Release version number could not be parsed.')
-            valid_assets = [a for a in release['assets'] if a['name'].lower().endswith(f"{'win64' if IS_64_BIT else 'win32'}.7z")]
-            if not valid_assets:
-                continue
-            self.DOWNLOAD_URL = valid_assets[0]['browser_download_url']
-            return version.group(1)
+            asset_number = 0
+            release_nums = {}
+            last_updated = []
+            for i in release['assets']:
+                if "7z" in i['browser_download_url']:
+                    if IS_64_BIT:
+                        if i['name'].find("Win32") == -1:
+                            release_nums[i['browser_download_url']] = int(i['name'][-10:][0])
+                        last_updated.append(i['updated_at'])
+                    else:
+                        if i['name'].find("Win32") != -1:
+                            release_nums[i['browser_download_url']] = int(i['name'][-10:][0])
+                        last_updated.append(i['updated_at'])
+            release_nums = sorted(release_nums)
+            last_updated = sorted(last_updated)
+            self.DOWNLOAD_URL = release_nums[-1]
+            return [version.group(1), last_updated[-1]]
         else:
             raise Exception('No ungoogled versions found in releases.')
-            
+
     def _check_running(self):
         for proc in psutil.process_iter():
             try:
@@ -62,8 +74,8 @@ class ChromiumUpdater:
                 pass
             except psutil.AccessDenied:
                 pass
-            
-    def run_on_schedule_and_startup(self, enable = True, path = Path(__file__) ):
+
+    def run_on_schedule_and_startup(self, enable = True, path = __file__ ):
         startup_key = r'Software\Microsoft\Windows\CurrentVersion\Run'
         winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, startup_key)
         key = winreg.OpenKeyEx(winreg.HKEY_CURRENT_USER, startup_key, access=winreg.KEY_WRITE)
@@ -79,7 +91,7 @@ class ChromiumUpdater:
             os.system(fr'''SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{path.absolute()}'" /ST 00:00 /F''')
         else:
             os.system(fr'''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
-        
+
     def verify_archive(self, zippath, expected_version):
         ''' returns name of chrome archive or None if not found.'''
         bytes = subprocess.check_output([str(self.SEVENZIP), 'l', str(zippath)], startupinfo=self.sinfo)
@@ -90,13 +102,16 @@ class ChromiumUpdater:
                 if fp.parent.name and fp.stem == expected_version:
                     return fp.parent
         return None
-        
+
     def update(self):
         self._check_running()
-        new_version = self._get_latest_release()
+        latest_release = self._get_latest_release()
+        new_version = latest_release[0]
         version = [path for path in CHROMIUM_PATH.iterdir() if path.suffix.lower() == '.manifest']
         version = version[0].stem if version else '0'
-        if version != new_version:
+        edited_time = datetime.utcfromtimestamp(os.path.getmtime(str(CHROMIUM_PATH) + '\\chrome.exe'))
+        last_updated = datetime.strptime(latest_release[1], '%Y-%m-%dT%H:%M:%S%z').replace(tzinfo=None)
+        if version != new_version or last_updated > edited_time:
             print('New version found, updating...')
         else:
             print('Ungoogled Chromium is up to date.')
@@ -109,7 +124,7 @@ class ChromiumUpdater:
         r = requests.get(self.DOWNLOAD_URL)
         r.raise_for_status()
         tmpzip.write_bytes(r.content)
-        
+
         archive_contents = self.verify_archive(tmpzip, new_version)
         if not archive_contents:
             raise Exception('Unexpected contents of Chromium archive.')
@@ -118,7 +133,7 @@ class ChromiumUpdater:
             output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), f'-o{CHROMIUM_PATH}','-y'], startupinfo=self.sinfo)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
-        
+
         # delete all files in directory:
         for path in CHROMIUM_PATH.iterdir():
             if path.is_dir():
@@ -135,7 +150,7 @@ class ChromiumUpdater:
         except FileNotFoundError:
             pass
         shutil.rmtree(googledir)
-            
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='Update Ungoogled Chromium.')
