@@ -46,7 +46,7 @@ class ChromiumUpdater:
             version = VERSION_FROM_TAG.search(release['tag_name'])
             if not version:
                 raise Exception('Release version number could not be parsed.')
-            valid_assets = [a for a in release['assets'] if a['name'].lower().endswith(f"{'win64' if IS_64_BIT else 'win32'}.7z")]
+            valid_assets = [a for a in sorted(release['assets'], key=lambda a:a['id'], reverse=True) if a['name'].lower().endswith(f"{'win64' if IS_64_BIT else 'win32'}.7z")]
             if not valid_assets:
                 continue
             valid_assets[0]['release_version'] = version.group(1)
