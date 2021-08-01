@@ -12,9 +12,11 @@ from distutils.dir_util import copy_tree
 import psutil
 import platform
 import sys
+import json
 
-CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium')
+CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium').resolve()
 VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
+RELEASE_INFO_PATH = CHROMIUM_PATH.joinpath('github_asset_info')
 IS_64_BIT = platform.machine().endswith('64')
 
 class ChromiumUpdater:
@@ -47,8 +49,8 @@ class ChromiumUpdater:
             valid_assets = [a for a in release['assets'] if a['name'].lower().endswith(f"{'win64' if IS_64_BIT else 'win32'}.7z")]
             if not valid_assets:
                 continue
-            self.DOWNLOAD_URL = valid_assets[0]['browser_download_url']
-            return version.group(1)
+            valid_assets[0]['release_version'] = version.group(1)
+            return valid_assets[0]
         else:
             raise Exception('No ungoogled versions found in releases.')
             
@@ -92,10 +94,14 @@ class ChromiumUpdater:
         
     def update(self):
         self._check_running()
-        new_version = self._get_latest_release()
-        version = [path for path in CHROMIUM_PATH.iterdir() if path.suffix.lower() == '.manifest']
-        version = version[0].stem if version else '0'
-        if version != new_version:
+        if RELEASE_INFO_PATH.exists():
+            with RELEASE_INFO_PATH.open('r') as f:
+                current_release_id = json.load(f)['id']
+        else:
+            current_release_id = 0
+        new_version_info = self._get_latest_release()
+        print(current_release_id,'==',new_version_info['id'])
+        if current_release_id != new_version_info['id']:
             print('New version found, updating...')
         else:
             print('Ungoogled Chromium is up to date.')
@@ -105,11 +111,11 @@ class ChromiumUpdater:
             tmpzip.unlink() # can use missing_ok=True if pathlib > 3.8
         except FileNotFoundError:
             pass
-        r = requests.get(self.DOWNLOAD_URL)
+        r = requests.get(new_version_info['browser_download_url'])
         r.raise_for_status()
         tmpzip.write_bytes(r.content)
         
-        archive_contents = self.verify_archive(tmpzip, new_version)
+        archive_contents = self.verify_archive(tmpzip, new_version_info['release_version'])
         if not archive_contents:
             raise Exception('Unexpected contents of Chromium archive.')
         googledir = Path(CHROMIUM_PATH, archive_contents)
@@ -129,6 +135,8 @@ class ChromiumUpdater:
         # copy contents of folder.
         copy_tree(googledir, str(CHROMIUM_PATH))
         #cleanup
+        with RELEASE_INFO_PATH.open('w') as f:
+            json.dump(new_version_info, f)
         try:
             tmpzip.unlink() # can use missing_ok=True if pathlib > 3.8
         except FileNotFoundError:
