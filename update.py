@@ -15,7 +15,7 @@ import sys
 import json
 
 CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium').resolve()
-VERSION_FROM_TAG = re.compile('^v([\d\.]*)')
+VERSION_FROM_TAG = re.compile('M([\d\.]*)')
 RELEASE_INFO_PATH = CHROMIUM_PATH.joinpath('github_asset_info')
 IS_64_BIT = platform.machine().endswith('64')
 
@@ -100,7 +100,6 @@ class ChromiumUpdater:
         else:
             current_release_id = 0
         new_version_info = self._get_latest_release()
-        print(current_release_id,'==',new_version_info['id'])
         if current_release_id != new_version_info['id']:
             print('New version found, updating...')
         else:
