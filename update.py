@@ -1,6 +1,6 @@
 # exes from https://github.com/macchrome/winchrome/releases
 # requires a valid installation of 7zip.
-# also requires psutil: pip3 install psutil
+# also requires psutil and requests: pip3 install psutil requests
 import os
 import requests
 import winreg
@@ -13,8 +13,17 @@ import psutil
 import platform
 import sys
 import json
-
-CHROMIUM_PATH = Path(os.getenv('LOCALAPPDATA'),'Ungoogled Chromium').resolve()
+##############################
+## Choose Install Location: ##
+##############################
+# Install in ProgramData (old default)
+CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium').resolve()
+# Install in Program Files (recommended)
+# CHROMIUM_PATH = Path(os.getenv('PROGRAMFILES'),'Ungoogled Chromium').resolve()
+# Install in AppData (if installing for a single user only)
+# CHROMIUM_PATH = Path(os.getenv('LOCALAPPDATA'),'Programs','Ungoogled Chromium').resolve()
+##############################
+##############################
 VERSION_FROM_TAG = re.compile('M([\d\.]*)')
 RELEASE_INFO_PATH = CHROMIUM_PATH.joinpath('github_asset_info')
 IS_64_BIT = platform.machine().endswith('64')
