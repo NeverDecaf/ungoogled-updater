@@ -11,4 +11,4 @@ Binaries are obtained from [Marmaduke's repository](https://github.com/macchrome
 
 **Requires:** Python 3, 7zip, `requests` and `psutil` (`pip3 install requests psutil`).
 
-To setup to automatically run on Windows login, run `python update.py --install`.
+To enable automatic updates (daily at 0:00), run `python update.py --install`. *Updates will only work if chromium is not currently running.*
