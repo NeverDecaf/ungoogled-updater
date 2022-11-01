@@ -14,7 +14,7 @@ import platform
 import sys
 import json
 
-CHROMIUM_PATH = Path(os.getenv('PROGRAMDATA'),'Ungoogled Chromium').resolve()
+CHROMIUM_PATH = Path(os.getenv('LOCALAPPDATA'),'Ungoogled Chromium').resolve()
 VERSION_FROM_TAG = re.compile('M([\d\.]*)')
 RELEASE_INFO_PATH = CHROMIUM_PATH.joinpath('github_asset_info')
 IS_64_BIT = platform.machine().endswith('64')
