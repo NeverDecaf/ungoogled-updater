@@ -85,6 +85,7 @@ class ChromiumUpdater:
             valid_assets[0]['release_version'] = version.group(1)
             return valid_assets[0]
         raise Exception('No ungoogled versions found in releases.')
+
     def _check_running(self):
         for proc in psutil.process_iter():
             try:
@@ -121,7 +122,10 @@ class ChromiumUpdater:
                 rf"""SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{path.absolute()}'" /ST 00:00 /F"""
             )
         else:
-            os.system('''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
+            os.system(
+                """SchTasks /Delete /TN "Ungoogled Chromium Updater" /F"""
+            )
+
     def verify_archive(self, zippath, expected_version):
         """returns name of chrome archive or None if not found."""
         bytes = subprocess.check_output(
@@ -162,7 +166,9 @@ class ChromiumUpdater:
         r.raise_for_status()
         tmpzip.write_bytes(r.content)
 
-        archive_contents = self.verify_archive(tmpzip, new_version_info['release_version'])
+        archive_contents = self.verify_archive(
+            tmpzip, new_version_info['release_version']
+        )
         if not archive_contents:
             raise Exception('Unexpected contents of Chromium archive.')
         googledir = Path(CHROMIUM_PATH, archive_contents)
