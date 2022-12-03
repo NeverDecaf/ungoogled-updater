@@ -60,8 +60,7 @@ class ChromiumUpdater:
                 continue
             valid_assets[0]['release_version'] = version.group(1)
             return valid_assets[0]
-        else:
-            raise Exception('No ungoogled versions found in releases.')
+        raise Exception('No ungoogled versions found in releases.')
             
     def _check_running(self):
         for proc in psutil.process_iter():
@@ -89,7 +88,7 @@ class ChromiumUpdater:
         if enable:
             os.system(fr'''SchTasks /Create /SC DAILY /TN "Ungoogled Chromium Updater" /TR "'{sys.executable.replace('python.exe','pythonw.exe')}' '{path.absolute()}'" /ST 00:00 /F''')
         else:
-            os.system(fr'''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
+            os.system('''SchTasks /Delete /TN "Ungoogled Chromium Updater" /F''')
         
     def verify_archive(self, zippath, expected_version):
         ''' returns name of chrome archive or None if not found.'''
@@ -122,7 +121,7 @@ class ChromiumUpdater:
         r = requests.get(new_version_info['browser_download_url'])
         r.raise_for_status()
         tmpzip.write_bytes(r.content)
-        
+
         archive_contents = self.verify_archive(tmpzip, new_version_info['release_version'])
         if not archive_contents:
             raise Exception('Unexpected contents of Chromium archive.')
@@ -131,7 +130,7 @@ class ChromiumUpdater:
             output = subprocess.check_output([str(self.SEVENZIP), 'x', str(tmpzip), f'-o{CHROMIUM_PATH}','-y'], startupinfo=self.sinfo)
         except subprocess.CalledProcessError:
             raise Exception('7zip extraction failed.')
-        
+
         # delete all files in directory:
         for path in CHROMIUM_PATH.iterdir():
             if path.is_dir():
