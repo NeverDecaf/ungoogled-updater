@@ -1,6 +1,7 @@
 # exes from https://github.com/macchrome/winchrome/releases
 # requires a valid installation of 7zip.
-# also requires psutil and requests: pip3 install psutil requests
+# also requires psutil, requests and setuptools (replaces distutils in Python >=3.12) 
+# pip3 install psutil requests setuptools
 import os
 import requests
 import winreg
