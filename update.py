@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 import subprocess
 import shutil
-from distutils.dir_util import copy_tree
 import psutil
 import platform
 import sys
@@ -141,7 +140,7 @@ class ChromiumUpdater:
                 path.unlink()
 
         # copy contents of folder.
-        copy_tree(googledir, str(CHROMIUM_PATH))
+        shutil.copytree(googledir, str(CHROMIUM_PATH), dirs_exist_ok = True)
         #cleanup
         with RELEASE_INFO_PATH.open('w') as f:
             json.dump(new_version_info, f)
